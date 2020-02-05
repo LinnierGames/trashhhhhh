@@ -2,9 +2,9 @@ import mongoose from 'mongoose';
 import uniqueValidator from 'mongoose-unique-validator';
 import bcrypt from 'bcrypt-nodejs';
 import jwt from 'jsonwebtoken';
-const Schema = mongoose.Schema;
+import UserType from './user-type';
 
-const UserSchema = new Schema({
+const UserSchema = new mongoose.Schema({
   local: {
     name:  { type: String, required: true },
     email: { type: String, index: true, required: true, unique: true },
@@ -14,17 +14,7 @@ const UserSchema = new Schema({
   }
 });
 
-interface User extends mongoose.Document {
-  local: {
-    name:  String
-    email: String
-    password: String
-    token: String
-    createdAt: Date
-  }
-}
-
-const UserModel = mongoose.model('User', UserSchema) as mongoose.Model<User>
+const UserModel = mongoose.model('User', UserSchema) as mongoose.Model<UserType>;
 
 const generateHash = function(password: string) {
   return bcrypt.hashSync(password, bcrypt.genSaltSync(8));
@@ -35,18 +25,21 @@ const generateJWT = function(email: string, id: string): string {
   const expirationDate = new Date(today);
   expirationDate.setDate(today.getDate() + 90);
 
-  return jwt.sign({
-    email: email,
-    id: id,
-    exp: parseInt((expirationDate.getTime() / 1000).toString(), 10),
-  }, "zkcdzxy"/*process.env.SECRET!*/);
+  return jwt.sign(
+    {
+      email: email,
+      id: id,
+      exp: parseInt((expirationDate.getTime() / 1000).toString(), 10),
+    }, 
+    process.env.SECRET!
+  );
 };
 
 const validate = function(attributes: any): mongoose.Error.ValidationError | undefined {
-  const tempUser = new UserModel(attributes)
-  const errors = tempUser.validateSync()
+  const tempUser = new UserModel(attributes);
+  const errors = tempUser.validateSync();
 
-  return errors
+  return errors;
 }
 
 const validateEmail = function(email: string): boolean {
@@ -54,11 +47,11 @@ const validateEmail = function(email: string): boolean {
   return re.test(email.toLowerCase());
 }
 
-const currentUser = function(token: string, callback: (_: mongoose.Model<User>) => void) {
-  UserModel.findOne({ 'local.token': token }, callback)
+const currentUser = function(token: string, callback: (_: mongoose.Model<UserType>) => void) {
+  UserModel.findOne({ 'local.token': token }, callback);
 }
 
-const verifyPassword = function(user: User, password: string) {
+const verifyPassword = function(user: UserType, password: string) {
   return bcrypt.compareSync(password, user.local.password as string);
 };
 
